@@ -261,7 +261,7 @@
        },
         
         onEachFeature: function(feature,layer) {
-            layer.bindPopup( "<b style='color:#7393b2'>" + feature.properties.MAPNAME +"<br>Percentage of Households\nwith Yearly Income under $50,000 in " + feature.properties.start + ":<br>"+ feature.properties.pctInc*100 + "%");
+            layer.bindPopup( "<b style='color:#7393b2'>" + feature.properties.MAPNAME +"<br>Percentage of Households\nwith Yearly Income under $50,000 in " + feature.properties.start + ":<br>"+ feature.properties.pctInc + "%");
         },  
     });
 

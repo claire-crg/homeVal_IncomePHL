@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset=utf-8 />
+    <title>Income and Housing Values in Philadelphia</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+    <!--Leaflet scripts:-->
+    <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" />
+    
+    <!--Plugin scripts:-->
+    <script src="javascripts/leaflet.timeline.js"></script>
+    <script src="javascripts/moment.min.js"></script> 
+    
+    <style>
+        
+        /*This makes the map take the whole window. Width needs to calc(100% - *X*px) for full screen so it knows to resize with the window and leaves space for footer.*/
+        
+        #map { 
+            height: calc(100%); 
+            width: 100%; 
+            position: absolute !important; 
+        }
+        
+        /*This defines the map title properties.*/
+        
+        #title {
+            position: absolute;
+            top: 15%;
+            width: 96%;
+            font-size: 24pt;
+            margin-left: 2%;
+            text-align: left;
+            z-index: 9999;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: whitesmoke;
+            color: #0D0000;
+        }
+
+        /*create legend*/
+        #legend {
+            position: absolute;
+            top: 55%;
+            left: 70%;
+            width: 20%;
+            text-align: left;
+            line-height: 18px;
+            z-index: 9999;
+        }
+
+        .circle:before{
+            float: left;
+            display: inline;
+            content:  '\25CF';
+            font-size: 1.5em;
+            padding: 0;
+            margin: 0;
+            color: #dd9944;
+            opacity: 0.5;
+        }
+        
+        .circle1:before{
+            float: left;
+            display: inline;
+            content:  '\25CF';
+            font-size: 1.5em;
+            padding: 0;
+            margin: 0;
+            color: #90abc4;
+            opacity: 0.5;
+        }
+        
+        /*These bits of code came from the Leaflet.timeline examples on github. They give the timeline slider and buttons a nice size and place.*/
+        
+        .leaflet-bottom.leaflet-left {
+            width: 100%;
+        }
+        
+        .leaflet-control-container.leaflet-timeline-controls{
+        box-sizing: border-box;
+        width: 100%;
+        margin: 0;
+        margin-bottom: 15px;
+        }  
+        
+        .leaflet-control.leaflet-timeline-control {
+        width: 96%;
+        box-sizing: border-box;
+        margin: 2%;
+        margin-bottom: 20px;
+        text-align: center;
+        }
+        
+        /*Sets background of control elements to a grey color.*/
+        
+        .leaflet-control-layers-expanded { 
+            background: #BBBBBB; 
+        }
+        
+        .leaflet-popup-content-wrapper,
+        .leaflet-popup-tip {
+            background-color: #BBBBBB;
+        }
+                
+        
+        /*These are the keyframes for point change animations. They work pretty well, but could probably be a bit prettier.*/
+        
+        @keyframes sett-in { 
+            from { opacity: 0.0;
+                height: 0px;
+                width: 0px;
+                background-color: var(--opa-color)}
+            75% {
+                height: 4px;
+                width: 4px;
+                margin-left: -3px;
+                margin-top: -3px}
+            to {
+                background-color: var(--opa-color);
+                height: 2px;
+                width: 2px;
+                margin-left: -1px;
+                margin-top: -1px}
+        }
+        
+        @keyframes opa-inc {
+            from {
+                background-color: var(--opa-color);
+                height: 4px;
+                width: 4px;
+                margin-left: -2px;
+                margin-top: -2px
+            }
+            50% {
+                background-color: var(--opa-color);
+            }
+            75% {
+                background-color: var(--inc-color);
+                height: 8px;
+                width: 8px;
+                margin-left: -4px;
+                margin-top: -4px}
+            to {
+                background-color: var(--inc-color);
+                height: 6px;
+                width: 6px;
+                margin-left: -3px;
+                margin-top: -3px
+            }
+        }
+
+
+    </style>
+</head>
+
+<body>
+
+    <!--These scripts call the geoJSON data. I  could probably make them all one file if I wanted to go through and change all the L.timeline calls.-->
+    
+    
+    <script src="incPCT.geojson" type="text/javascript"></script>
+    <script src="opa.geojson" type="text/javascript"></script>
+    
+    <div id='map'></div>
+    
+    <!--This makes the map title.-->
+    
+    <div id='title'>
+        <p style="line-height:0px">Philadelphia</p>
+        <p style="font-size:18px;line-height:30px">Income and Housing Values 2015-2022:</p>
+        <p style="font-size:18px;line-height:0px">Comparing the city's neighborhoods'</p>
+        <p style="font-size:18px;line-height:0px">median household values and the percentage</p>
+        <p style="font-size:18px; line-height: 0px">of households with yearly incomes below $50,000.</p></div>
+        
+    <div id="legend">
+        <p style="font-size:16px;line-height:30px">Legend</p>
+        <div><span class='circle'></span></div>
+        <p style="font-size:14px;line-height:20px">Median House Value</p>
+        <div><span class='circle1'></span></div>
+        <p style="font-size:14px;line-height:0px">Percentage of Households</p>
+        <p style="font-size:14px;line-height:0px">with Yearly Income below $50,000</p>
+    </div>
+    <script>    
+    
+    //This creates the map and sets its variables.
+        
+    var map = L.map('map', {
+        center: [39.99,  -75.1652],
+        zoom: 10.5,
+        fullscreenControl: {
+            Fullscreen: true
+        }
+      });
+      
+    //This calls map tiles and sets tile variables.
+        
+    var tiles = L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png', {
+	   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a> | <a href="https://nitkin.github.io/">Evan Nitkin</a>',
+	   subdomains: 'abcd',
+	   //maxZoom: 19
+    });
+      
+    tiles.addTo(map);
+        
+    //This bit creates the timeline slider, sets its variables, and adds it to the map. Uses the moment plugin to parse dates.
+        
+    var slider = L.timelineSliderControl({
+        steps: 8,
+        position: "bottomleft",
+        duration: 10000,
+        showTicks: true,
+        waitToUpdateMap: false,
+        autoPlay: false
+    });
+        
+    map.addControl(slider);
+    
+    //This defines the settlement marker layer. Interfaces with timeline by using L.timeline instead of L.geojson to call the geoJSON file.
+
+    var opaTimeline = L.timeline(opa, {    
+        pointToLayer: function(feature,latlng) {
+            return L.circleMarker(latlng, {
+                weight: 0,
+                fillColor: '#dd9944',
+                fillOpacity: .3,
+                //radius: getRadius(feature.properties.medVal)
+                radius:(feature.properties.medVal/25000)
+                })
+            },
+            
+        //Creates on each feature a popup with some info and a mouseover/mouseout function to highligh markers when hovered over by changing opacity.
+        
+        onEachFeature: function(feature,layer) {
+            layer.bindPopup("<b style='color:#dd9944'>" +feature.properties.MAPNAME + "<br>Median Housing Value in " + feature.properties.start + ": <br>$" + feature.properties.medVal);
+        }
+        });
+        
+        
+    //Adds the markers to map.
+    
+    opaTimeline.addTo(map);
+        
+    //These three variables and .addTos work the same as above for the other marker types.
+        
+    var incTimeline = L.timeline(inc, {
+        pointToLayer: function(feature,latlng) {
+            return L.circleMarker(latlng, {
+                 color: '#90abc4',
+                 fillColor: '#90abc4',
+                 fillOpacity: 0.4,
+                 weight:0,
+                // radius: getRadius(feature.properties.pctInc)
+                 radius: (feature.properties.pctInc * 5)
+            })
+       },
+        
+        onEachFeature: function(feature,layer) {
+            layer.bindPopup( "<b style='color:#7393b2'>" + feature.properties.MAPNAME +"<br>Percentage of Households\nwith Yearly Income under $50,000 in " + feature.properties.start + ":<br>"+ feature.properties.pctInc + "%");
+        },  
+    });
+
+    incTimeline.addTo(map);
+        
+    
+    //This adds the four layers to the timeline slider so they all play simultaneously.
+        
+    slider.addTimelines(opaTimeline, incTimeline);
+
+    //This is a list of the four layers and text/formatting to pass into the layer control below. 
+        
+    var sourcesLayers = {
+        "<b style='color:#d47e50'>House Value</b>": opaTimeline,
+        "<b style='color:#6587a9'>Household Income</b>": incTimeline,
+    };
+    
+    //This controls the layers.    
+    
+    L.control.layers(null, sourcesLayers, {position: "topright", collapsed:false }).addTo(map);
+        
+    function getRadius(num){
+        var radius = Math.sqrt(num/Math.PI);
+        return radius
+    }
+
+    
+    </script>
+    
+</body>
+
+</html>
